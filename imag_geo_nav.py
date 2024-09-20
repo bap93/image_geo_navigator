@@ -24,9 +24,34 @@ def main():
     main_window.mainloop()
 
 
+
+# display the photos in the photo window that user has uploaded
+def display_photos(photo_listbox):
+    folder_path = "saved_photos"
+
+    
+    if photo_listbox:
+        photo_listbox.delete(0, tk.END)
+    
+  
+
+    if os.path.exists(folder_path):
+        files = os.listdir(folder_path)
+
+        image_files = [f for f in files if f.lower().endswith ((".jpg", ".jpeg"))]
+
+        
+        for image in image_files:
+            photo_listbox.insert(tk.END, image)
+
+            print(f"current image is {image}")
+
+    else:
+        print(f"Folder {folder_path} not found.")
+
 # upload photos 
 def upload_photo():
-    file_path = filedialog.askopenfilename(filetypes= [("Image files", "*.jpg; *.jpeg; *.png")])
+    file_path = filedialog.askopenfilename(filetypes= [("Image files", "*.jpg; *.jpeg")])
     if file_path:
         save_photo(file_path)
 
@@ -42,10 +67,19 @@ def create_photo_window():
     photo_window = tk.Toplevel(background = "lemonchiffon")
     photo_window.title("Photos")
     photo_window.geometry("600x400")
-    label = Label(photo_window).pack()
+    #label = Label(photo_window).pack()
     
     # upload button
-    button = Button(photo_window, text="Upload", command= upload_photo).pack(anchor = "center", side = "bottom", pady = 40)
+    button = Button(photo_window, text="Upload", command= upload_photo)
+    button.pack(anchor = "center", side = "bottom", pady = 40)
+
+    # 
+    photo_listbox = tk.Listbox(photo_window, width = 100, height = 75)
+    photo_listbox.pack(pady = 10)
+   
+    display_photos(photo_listbox)
+
+    
 
 # create a map window that displays the map
 def create_map_window():
@@ -69,7 +103,8 @@ def create_main_window():
 
     main_window.config(background = "lemonchiffon")
 
-    earth_icon = PhotoImage(file = "images/128px-Earth_icon_2.png")
+    # FIX THIS!!!!!! icon for all windows
+    earth_icon = PhotoImage(file = os.getcwd()+"/images/128px-Earth_icon_2.png")
     main_window.iconphoto(True, earth_icon)
 
     # header frame
