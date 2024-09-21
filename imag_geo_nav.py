@@ -1,7 +1,3 @@
-
-
-
-
 from tkinter import *
 import tkinter as tk
 from tkintermapview import TkinterMapView 
@@ -11,122 +7,230 @@ from PIL import Image, ImageTk
 import os 
 import shutil
 
-main_window = Tk()
-
-program_name = "Image Geo Navigator"
-
 def main():
 
-    create_main_window()
+    app = GeoNavApplication() 
+
+    app.mainloop()
 
 
+class MapWindow:
+    def __init__( self ):
+        self.create_map_window()
 
-    main_window.mainloop()
-
-
-
-# display the photos in the photo window that user has uploaded
-def display_photos(photo_listbox):
-    folder_path = "saved_photos"
-
+    def create_map_window( self ):
+        self.map_window = Toplevel()
+        self.map_window.title("Map")
+        self.map_window.geometry("600x400")
     
-    if photo_listbox:
-        photo_listbox.delete(0, tk.END)
-    
-  
+        # map widget
+        self.map_widget = TkinterMapView( self.map_window,
+            width = 600,
+            height = 400,
+            corner_radius = 0
+        )
+        self.map_widget.pack(fill = "both", expand = True)
 
-    if os.path.exists(folder_path):
-        files = os.listdir(folder_path)
+class PhotoWindow:
+
+    def __init__( self ):
+
+        self.saved_photos_dir = os.getcwd()+"/saved_photos"
+
+        self.create_photo_window()
+
+
+    def add_photos_from_dir( self ):
+
+        file_path = filedialog.askopenfilename()#( filetypes = [
+            #("Image files", "*.jpg; *.jpeg")
+        #])
+
+        if not file_path:
+            print("No file path selected!")
+            return
+    
+        os.makedirs( self.saved_photos_dir, exist_ok = True )
+
+        shutil.copy( file_path, os.path.join( self.saved_photos_dir, os.path.basename(file_path) ) )
+
+        # update the photo info since we added photos to our saved dir 
+        self.update_photo_info()
+
+    def clear_photos_from_dir( self ):
+        files = os.listdir(self.saved_photos_dir)
 
         image_files = [f for f in files if f.lower().endswith ((".jpg", ".jpeg"))]
 
-        
         for image in image_files:
-            photo_listbox.insert(tk.END, image)
+            full_image_path = f"{self.saved_photos_dir}/{image}"
+            print( f"removing {full_image_path}..." )
+            os.remove(full_image_path) 
 
-            print(f"current image is {image}")
 
-    else:
-        print(f"Folder {folder_path} not found.")
+        # update the photo info since we added photos to our saved dir 
+        self.update_photo_info()
 
-# upload photos 
-def upload_photo():
-    file_path = filedialog.askopenfilename(filetypes= [("Image files", "*.jpg; *.jpeg")])
-    if file_path:
-        save_photo(file_path)
+    # reads the added photo infomation and updates the internal photo data 
+    def update_photo_info( self ):
 
-# save photos to folder called saved photos
-def save_photo(file_path):
-    save_folder = "saved_photos"
-    os.makedirs(save_folder, exist_ok = True)
+        # delete the listbox if one was there already
+        if self.photo_listbox:
+            self.photo_listbox.delete(0, tk.END)
 
-    shutil.copy(file_path, os.path.join(save_folder, os.path.basename(file_path)))
+        # exit early if saved photos dir doesn't exist 
+        if not os.path.exists(self.saved_photos_dir):
+            print( f"Folder {self.saved_photos_dir} not found." )
+            return
 
-# create the photo window with the upload button 
-def create_photo_window():
-    photo_window = tk.Toplevel(background = "lemonchiffon")
-    photo_window.title("Photos")
-    photo_window.geometry("600x400")
-    #label = Label(photo_window).pack()
+        files = os.listdir(self.saved_photos_dir)
+
+        image_files = [f for f in files if f.lower().endswith ((".jpg", ".jpeg"))]
+
+        for image in image_files:
+            self.photo_listbox.insert( tk.END, image )
+
+            print( f"current image is {image}" )
+
+    def create_photo_window( self ):
+
+        self.photo_window = tk.Toplevel( background = "lemonchiffon" )
+
+        # create photo window
+        self.photo_window.title( "Photos" )
+        self.photo_window.geometry( "600x400" )
+        
+        # add button
+        button = Button(
+            self.photo_window,
+            text    = "Add Photos",
+            command = self.add_photos_from_dir 
+        )
+        button.pack(anchor = "center", side = "bottom", pady = 40)
+        
+        # clear button
+        button = Button(
+            self.photo_window,
+            text    = "Clear Photos",
+            command = self.clear_photos_from_dir 
+        )
+        button.pack(anchor = "center", side = "bottom", pady = 40)
+
+        # create listbox 
+        self.photo_listbox = tk.Listbox(self.photo_window, width = 100, height = 75)
+        self.photo_listbox.pack(pady = 10)
     
-    # upload button
-    button = Button(photo_window, text="Upload", command= upload_photo)
-    button.pack(anchor = "center", side = "bottom", pady = 40)
+        # update the photo info in case theres already photos in the saved dir
+        self.update_photo_info()
 
-    # 
-    photo_listbox = tk.Listbox(photo_window, width = 100, height = 75)
-    photo_listbox.pack(pady = 10)
-   
-    display_photos(photo_listbox)
 
+
+# Root of Geo Nav Application 
+class GeoNavApplication:
+
+    def __init__( self ):
+
+        self.images_dir = file = os.getcwd()+"/images"
+
+        self.create_main_window()
+
+    # main window with buttons, earth icon, header with program title
+    def create_main_window( self ):
+        self.main_window = Tk()
     
+        self.main_window.geometry("780x780")
+        self.main_window.title("Image Geo Navigator")
 
-# create a map window that displays the map
-def create_map_window():
-    map_window = Toplevel()
-    map_window.title("Map")
-    map_window.geometry("600x400")
+        self.main_window.config(background = "lemonchiffon")
+
+        # icon for all windows
+
+        earth_icon = PhotoImage( file = f"{self.images_dir}/128px-Earth_icon_2.png" )
+
+        self.main_window.iconphoto( True, earth_icon )
+
+        # header frame
+        header_frame = tk.Frame( self.main_window,
+            height = 30,
+            bg     = "navajowhite"
+        )
+        header_frame.pack(
+            fill = "x",
+            pady = (0,10)
+        )
+
+        # header label
+        header_label = tk.Label(header_frame,
+            text = "Image Geo Navigator",
+            bg   = "navajowhite",
+            font = ("Helvetica", 48 )
+        )
+        header_label.pack(
+            pady = 10
+        )
+
+        # buttons for other windows DONT FORGET TO FIX THE ISSUE WITH CLOSING!!!!!!!!!!
+
+        # frame 
+        frame = tk.Frame(self.main_window)
+        frame.pack(
+            anchor = "center",
+            expand = True
+        )
+
+        # Photos Button
+        Button( self.main_window,
+            text    = "Photos",
+            command = self.create_photo_window,
+            bg      = "paleturquoise",
+            font    = ("Helvetica", 18),
+            width   = 30,
+            height  = 3
+        ).pack(
+            anchor = "center",
+            expand = True,
+            ipady = 5
+        )
+
+        # Map Button    
+        Button( self.main_window,
+            text    = "Map",
+            command = self.create_map_window,
+            bg      = "paleturquoise",
+            font    = ("Helvetica", 18),
+            width = 30,
+            height = 3
+        ).pack(
+            anchor = "center",
+            expand = True,
+            ipady = 5
+        )
+
+        # Quit Button
+        Button(self.main_window,
+            text    = "Quit",
+            command = self.close_program,
+            bg      = "paleturquoise",
+            font    = ("Helvetica", 18), 
+            width   = 30,
+            height  = 3
+        ).pack(
+            anchor = "center",
+            expand = True,
+            ipady = 5
+        )
+
+    def close_program( self ):
+        self.main_window.destroy()
     
-    # map widget
-    map_widget = TkinterMapView(map_window, width = 600, height = 400, corner_radius = 0)
-    map_widget.pack(fill = "both", expand = True)
+    def create_map_window( self ):
+        self.map_window = MapWindow()
 
-# quit button is directed here to close program
-def close_program():
-    main_window.destroy()
+    def create_photo_window( self ):
+        self.photo_window = PhotoWindow()
 
-# main window with buttons, earth icon, header with program title
-def create_main_window():
-   
-    main_window.geometry("780x780")
-    main_window.title("Image Geo Navigator")
-
-    main_window.config(background = "lemonchiffon")
-
-    # FIX THIS!!!!!! icon for all windows
-    earth_icon = PhotoImage(file = os.getcwd()+"/images/128px-Earth_icon_2.png")
-    main_window.iconphoto(True, earth_icon)
-
-    # header frame
-    header_frame =tk.Frame(main_window, height=30, bg = "navajowhite")
-    header_frame.pack(fill = "x", pady = (0,10))
-    header_label =tk.Label(header_frame, text = program_name, bg = "navajowhite", font = ("Helvetica", 48 ))
-    header_label.pack(pady = 10)
-
-
-    # buttons for other windows DONT FORGET TO FIX THE ISSUE WITH CLOSING!!!!!!!!!!
-
-    # frame 
-    frame = tk.Frame(main_window)
-    frame.pack(anchor = "center", expand=True)
-
-    Button(main_window, text = "Photos", command=create_photo_window, bg = "paleturquoise", font=("Helvetica", 18), width = 30, height = 3).pack(anchor = "center", expand = True, ipady = 5)
-    Button(main_window, text= "Map", command=create_map_window, bg = "paleturquoise", font=("Helvetica", 18), width = 30, height = 3).pack(anchor = "center", expand = True, ipady = 5)
-    Button(main_window, text = "Quit", command=close_program, bg = "paleturquoise", font=("Helvetica", 18), width = 30, height = 3).pack(anchor = "center", expand = True, ipady = 5)
-
-    return main_window
-
-
+    def mainloop( self ):
+        self.main_window.mainloop()
 
 main()
 
