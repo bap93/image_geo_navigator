@@ -7,7 +7,7 @@ from PIL import Image, ImageTk
 import os 
 import math
 import shutil
-
+import piexif
 def main():
 
     app = GeoNavApplication() 
@@ -411,8 +411,10 @@ class PhotoWindow:
         for file_path in file_paths:
             shutil.copy( file_path, os.path.join( self.saved_photos_dir, os.path.basename(file_path) ) )
 
-        # update the photo info since we added photos to our saved dir 
+       
+        # update the photo info since added photos to our saved dir 
         self.update_photo_info()
+
 
     def clear_photos_from_dir( self ):
         files = os.listdir(self.saved_photos_dir)
@@ -425,7 +427,7 @@ class PhotoWindow:
             os.remove(full_image_path) 
 
 
-        # update the photo info since we added photos to our saved dir 
+        # update the photo info since added photos to our saved dir 
         self.update_photo_info()
 
     def create_photo_table( self ):
@@ -445,6 +447,21 @@ class PhotoWindow:
 
         self.photo_table = PhotoTable( self.photo_table_frame, self.get_photos( as_list=True ) )
 
+     # This will convert the gps from degrees, mins, secs to the long and lat in decimals 
+    def dms_to_decimal(self, dms, ref):
+        degrees = dms[0][0] / dms [0][1]
+
+        minutes = dms[1][0] / dms[1][1]
+
+        seconds = dms[2][0] / dms[2][1]
+
+        decimal = degrees + (minutes / 60) + (seconds / 3600)
+
+        if ref in ['S', 'W']:
+
+            decimal = -decimal
+        return decimal
+    
     # reads the added photo infomation and updates the internal photo data 
     def update_photo_info( self ):
 
@@ -458,18 +475,51 @@ class PhotoWindow:
 
         image_files = [f for f in files if f.lower().endswith ((".jpg", ".jpeg"))]
 
-        # recreate the photos dict for accessing the info throughout the class
+        # recreate the photos dict for accessing the info throughout the class, try to get gps coordinates
         self._photos = {}
         for image in image_files:
+            full_path = f"{self.saved_photos_dir}/{image}" 
+            try:
+                image_obj = Image.open(full_path)
+                exif_data = piexif.load(image_obj.info.get('exif', b''))
+
+                
+                
+                gps_latitude = exif_data.get("GPS", {}).get(piexif.GPSIFD.GPSLatitude, None)
+
+                gps_latitude_ref = exif_data.get("GPS", {}).get(piexif.GPSIFD.GPSLatitudeRef,b'').decode()
+
+                gps_longitude = exif_data.get("GPS", {}).get(piexif.GPSIFD.GPSLongitude, None)
+
+                gps_longitude_ref = exif_data.get("GPS", {}).get(piexif.GPSIFD.GPSLongitudeRef, b'').decode()
+                
+                
+                if gps_latitude and gps_longitude:
+                    latitude = self.dms_to_decimal(gps_latitude, gps_latitude_ref)
+                    longitude = self.dms_to_decimal(gps_longitude, gps_longitude_ref)
+                else: latitude, longitude = None, None
+                    
+            except Exception as e:
+                print("No GPS data found")
+                latitude, longitude = None, None
+
             self._photos[image] = {
                 "name": image,
-                "full_path": f"{self.saved_photos_dir}/{image}"
-            }
+                "full_path": full_path,
+                "latitude": latitude,
+                "longitude": longitude,
+                }
+            
+            # Print to see if lat and long is correct
+            print(f"photo {image} updated exif data")
+            print(f"Your gps coordinates are: {(latitude, longitude)}")
 
+          
         # recreate the photo list box with the updated info
         #self.create_photo_list_box()
         self.create_photo_table()
-
+    
+        
     # method for helping get image information
     def get_photos( self, as_list=False, image_name=None ):
 
@@ -487,9 +537,9 @@ class PhotoWindow:
             photo_keys.sort()
             for photo_key in photo_keys:
                 photo_list.append(self._photos[photo_key])
-
+           
             return photo_list
-
+        
         # if no parameters were passed just return the photos dict 
         return self._photos 
 
@@ -584,7 +634,7 @@ class GeoNavApplication:
             pady = 10
         )
 
-        # buttons for other windows DONT FORGET TO FIX THE ISSUE WITH CLOSING!!!!!!!!!!
+       
 
         # frame 
         frame = tk.Frame(self.main_window)
@@ -634,6 +684,7 @@ class GeoNavApplication:
             expand = True,
             ipady = 5
         )
+
 
     def close_program( self ):
         self.main_window.destroy()
