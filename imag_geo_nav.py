@@ -34,34 +34,116 @@ class MapWindow:
 
 
 class PhotoTable():
-    def __init__(self, parent, data):
+    def __init__(self, parent, data, on_photo_edit):
+        
+        # setting passed in intilization varaibles as class properties 
         self.parent = parent
         self.data   = data 
+        self.on_photo_edit = on_photo_edit
+        
+        # defining font to use throughout class
         self.font   = tkFont.Font(family="Helvetica", size=12)
 
+        # define results for page constant and page button enums
         self.RESULTS_PER_PAGE = 10
         self.PAGE_FIRST       = 0 
         self.PAGE_BACKWARD    = 1 
         self.PAGE_FORWARD     = 2
         self.PAGE_LAST        = 3
 
-
+        # define frames
         self.table_frame      = None
         self.top_paginator    = None
         self.bottom_paginator = None
 
+        # initlize pagination variables to inital values
         self.current_page     = 0
         self.total_pages      = math.ceil(float(len(self.data) / self.RESULTS_PER_PAGE))
         self.result_start     = 0
         self.result_end       = self.RESULTS_PER_PAGE - 1
+        
 
         self.create_table()
 
-    def edit_image_exif_data( self, photo ):
-        name = photo['name']
-        print(f"{name} clicked!")
-            
 
+    # top level window that allows to edit exif data
+    def edit_image_exif_data( self, photo):
+      
+        self.edit_window = Toplevel(self.parent)
+        self.edit_window.grid()
+        self.edit_window.grid_columnconfigure(0, weight = 1)
+        self.edit_window.title(f"Edit Exif data for {photo['name']}")
+        self.edit_window.geometry( "300x150" )
+       
+       # frame
+        form_frame = tk.Frame(self.edit_window)
+        form_frame.grid(column = 0, sticky = "ew")
+        form_frame.grid_columnconfigure(0, weight=1)
+        form_frame.grid_columnconfigure(1, weight=1)
+        # fields to show the current lat and long and entry field
+        latitude_label = Label(form_frame, text = "Latitude:")
+        latitude_label.grid(row = 0, column = 0, sticky = "w", pady = 5)
+
+        self.latitude_entry = Entry(form_frame)
+        self.latitude_entry.grid(row = 0, column = 1, sticky = "ew", pady = 5)
+
+        longitude_label = Label(form_frame, text = "Longitude:")
+        longitude_label.grid(row = 1, column = 0, sticky = "w", pady = 5)
+
+        self.longitude_entry = Entry(form_frame)
+        self.longitude_entry.grid(row = 1, column = 1, sticky = "ew", pady = 5)
+
+        tk.Button( form_frame,
+            text    = "save", 
+            command = lambda photo = photo: self.write_exif_data( photo ),
+            font    = self.font 
+        ).grid( 
+            row = 2,
+            column = 1,
+            padx  = (10, 0),
+            sticky = "e", 
+            pady = 5
+        )
+
+    def convert_to_exif_format(self, decimal):
+        degrees = int(decimal)
+        minutes = int((decimal - degrees) * 60)
+        seconds = ((decimal - degrees - minutes / 60) * 3600)
+
+        return[(int(degrees), 1), (int(minutes), 1), (int(seconds * 100), 100)]
+
+    # reads user entered lat and long, validates input, writes them to images exif data
+    def write_exif_data(self, photo):
+        print(photo['name'])
+        try:
+            latitude = float(self.latitude_entry.get())
+            longitude = float(self.longitude_entry.get())
+            if latitude < -90 or latitude > 90:
+                raise Exception("Latitude outside of valid range!")
+            if longitude < -180 or longitude > 180:
+                raise Exception("Longitude is outside of valid range!")
+            
+        except Exception as e:
+            tk.messagebox.showerror("Error", "Latitude must be between -90 and 90!\nLongitude must be between -180 and 180!")
+            return
+        
+        # convert to proper format to write to exif data, write to exif data
+        exif_dict = piexif.load(photo["full_path"])
+        exif_dict["GPS"] = {
+            piexif.GPSIFD.GPSLatitudeRef: "N" if latitude >= 0 else "S",
+            piexif.GPSIFD.GPSLatitude: self.convert_to_exif_format(abs(latitude)),
+            piexif.GPSIFD.GPSLongitudeRef: "E" if longitude >= 0 else "W",
+            piexif.GPSIFD.GPSLongitude: self.convert_to_exif_format(abs(longitude)),
+
+        }
+
+        # saves it 
+        image = Image.open(photo["full_path"])
+        image.save(photo["full_path"], "jpeg", exif = piexif.dump(exif_dict))
+        self.on_photo_edit()
+        self.edit_window.destroy()
+
+    # changes page with respect to the button click
     def change_page( self, action ):
 
         if( action == self.PAGE_FIRST ):
@@ -98,7 +180,7 @@ class PhotoTable():
 
         self.create_table()
 
-
+    # creates paginator and buttons
     def create_paginator( self ):
 
         # Create Paginator Frame
@@ -191,7 +273,8 @@ class PhotoTable():
         ).grid()
 
         return paginator_frame
-
+    
+    # returns subset of data relative to page user is on
     def get_page_of_data( self ):
 
         self.result_start =  self.current_page * self.RESULTS_PER_PAGE
@@ -203,7 +286,7 @@ class PhotoTable():
 
         return self.data[self.result_start:self.result_end] 
 
-
+    # paginator table 
     def create_table(self):
 
         # clean up existing table if there is one
@@ -272,7 +355,7 @@ class PhotoTable():
             # alternate row colors
             background_color = "whitesmoke"
             if( row_index % 2 == 0 ):
-                background_color = "gainsboro"
+                background_color = "mintcream"
 
             # Add Photo Name Column 
             name_frame = tk.Frame( self.table_frame,
@@ -281,7 +364,7 @@ class PhotoTable():
             
             name_frame.grid(
                 row    = row_index,
-                sticky = "ew",
+                sticky = "nsew",
                 column = 0
             )
 
@@ -302,8 +385,9 @@ class PhotoTable():
             
             latitude_frame.grid(
                 row    = row_index,
-                sticky = "ew",
-                column = 1
+                sticky = "nsew",
+                column = 1,
+                pady = (0, 0)
             )
 
             tk.Label( latitude_frame, 
@@ -318,13 +402,15 @@ class PhotoTable():
 
             # Add Longitude Column
             longitude_frame = tk.Frame( self.table_frame,
-                bg = background_color
+                bg = background_color,
+                
             )
             
             longitude_frame.grid(
                 row    = row_index,
-                sticky = "ew",
-                column = 2
+                sticky = "nsew",
+                column = 2,
+                pady = (0,0)
             )
 
             tk.Label( longitude_frame, 
@@ -341,12 +427,12 @@ class PhotoTable():
             # Add Edit Exif Data Button Column
             button_frame = tk.Frame( self.table_frame,
                 bg     = background_color,
-                pady   = 4
+                pady   = 5
             )
             
             button_frame.grid(
                 row    = row_index,
-                sticky = "ew",
+                sticky = "nsew",
                 column = 3
             )
             
@@ -355,15 +441,16 @@ class PhotoTable():
                 background          = background_color,
                 highlightbackground = background_color,
                 command             = lambda photo = photo: self.edit_image_exif_data( photo ),
-                font                = self.font 
+                font                = self.font,
+                #height = 1
             ).grid(
-                padx  = (10, 0)
+                #padx  = (10, 0)
             )
 
         # Add the Bottom Paginator    
         self.bottom_paginator = self.create_paginator()
 
-            
+    # destroys the photo table   
     def destroy( self ):
         if self.top_paginator is not None:
             self.top_paginator.destroy()
@@ -392,7 +479,7 @@ class PhotoWindow:
 
         self.create_photo_window()
 
-
+    # allows one or more photos from directory and allows to save to saved photos directory
     def add_photos_from_dir( self ):
 
         file_paths = filedialog.askopenfilenames(
@@ -430,6 +517,7 @@ class PhotoWindow:
         # update the photo info since added photos to our saved dir 
         self.update_photo_info()
 
+    # create the photo table
     def create_photo_table( self ):
         if( self.photo_table_frame is not None):
             self.photo_table_frame.destroy()
@@ -445,7 +533,7 @@ class PhotoWindow:
         )
         self.photo_table_frame.grid_columnconfigure(0, weight=1)
 
-        self.photo_table = PhotoTable( self.photo_table_frame, self.get_photos( as_list=True ) )
+        self.photo_table = PhotoTable( self.photo_table_frame, self.get_photos( as_list=True ), self.update_photo_info )
 
      # This will convert the gps from degrees, mins, secs to the long and lat in decimals 
     def dms_to_decimal(self, dms, ref):
@@ -543,7 +631,7 @@ class PhotoWindow:
         # if no parameters were passed just return the photos dict 
         return self._photos 
 
-
+    # crete the photo window that will display list of photos 
     def create_photo_window( self ):
 
         self.photo_window = tk.Toplevel( background = "lemonchiffon" )
