@@ -7,14 +7,19 @@ from PIL import Image, ImageTk
 import os 
 import math
 import shutil
-import piexif
+#import piexif
+
+from GPSPhoto import gpsphoto
+
+
 def main():
 
     app = GeoNavApplication() 
 
     app.mainloop()
 
-
+# class that encapsulates the logic around the map window that generates a map 
+# and adds pinpoints for each GPS coordinates
 class MapWindow:
     def __init__( self, app ):
         self.app = app
@@ -23,10 +28,13 @@ class MapWindow:
     # create the map toplevel window, set window size using geometry
     def create_map_window( self ):
 
-        self.app.update_photo_info()
-
+        # creates a new toplevel 
         self.map_window = Toplevel()
+        
+        # title for the toplevel map window 
         self.map_window.title("Map")
+       
+       # set the geometry of the window
         self.map_window.geometry("800x600")
     
         # map widget from the TkinterMapView library. set the width and height
@@ -37,56 +45,62 @@ class MapWindow:
         )
         self.map_widget.pack(fill = "both", expand = True)
 
-        self.map_widget.set_position(39.8283, -98.5795)
+        # setting the position of the map to start over
+        # the middle of the united states, otherwise it starts across the globe
+        # Source Used to figure out center of US: https://en.wikipedia.org/wiki/Geographic_center_of_the_United_States#Contiguous_United_States
+        # Source Used to get coordinates: https://www.latlong.net/place/lebanon-ks-usa-12280.html#:~:text=Latitude%20and%20longitude%20coordinates%20are,Kansas%2C%20located%20near%20Highway%20281.
+        self.map_widget.set_position(39.809860, -98.555183)
 
-        #self.map_widget.set_marker(39.8283, -98.5795)
-
+        # set map zoom to resonable number so it is not zoom in annoyingly
         self.map_widget.set_zoom(5)
 
+        # this will add points to map, see function below
         self.add_points()
 
+    # function that adds points to the map based on the latitude and longitude that
+    # is extracted from the exif data and converted or from the user editing the exif data via the edit exif button 
     def add_points( self ):
         
         for photo in self.app.get_photos(as_list = True):
 
-            latitude = photo["latitude"]
+            latitude  = photo["latitude"]
             longitude = photo["longitude"]
-            name = photo["name"]
 
             self.map_widget.set_marker(latitude, longitude)
 
+    def destroy( self ):
+        self.map_window.destroy()
+
             
-  
-
-
+# class that  
 class PhotoTable():
-    def __init__(self, parent, data, on_photo_edit):
+    def __init__(self, parent, app):
         
         # setting passed in intilization varaibles as class properties 
-        self.parent = parent
-        self.data   = data 
-        self.on_photo_edit = on_photo_edit
+        self.parent = parent # the tkinter object to create this phototable within
+        self.app    = app    # the main application class 
+        self.data   = self.app.get_photos( as_list=True ) # the list of photos to create a table for
         
         # defining font to use throughout class
         self.font   = tkFont.Font(family="Helvetica", size=12)
 
         # define results for page constant and page button enums
-        self.RESULTS_PER_PAGE = 10 
-        self.PAGE_FIRST       = 0  
-        self.PAGE_BACKWARD    = 1 
-        self.PAGE_FORWARD     = 2
-        self.PAGE_LAST        = 3
+        self.RESULTS_PER_PAGE = 10 # default the results per page to 10
+        self.PAGE_FIRST       = 0  # declare enum for moving to first page
+        self.PAGE_BACKWARD    = 1  # declare enum for moving backwards one page
+        self.PAGE_FORWARD     = 2  # declare enum for moving forwards one page
+        self.PAGE_LAST        = 3  # declare enum for moving to last page
 
         # define frames
-        self.table_frame      = None
-        self.top_paginator    = None
-        self.bottom_paginator = None
+        self.table_frame      = None # main table frame
+        self.top_paginator    = None # top paginator frame
+        self.bottom_paginator = None # bottom paginator frame
 
         # initlize pagination variables to inital values
-        self.current_page     = 0
-        self.total_pages      = math.ceil(float(len(self.data) / self.RESULTS_PER_PAGE))
-        self.result_start     = 0
-        self.result_end       = self.RESULTS_PER_PAGE - 1
+        self.current_page     = 0 # default current page to the first page / keeps track of page table is on 
+        self.total_pages      = math.ceil(float(len(self.data) / self.RESULTS_PER_PAGE)) # calculate the total pages wrt the number of photos and the results per page set
+        self.result_start     = 0 # keeps track of the start of the current page / default to 0
+        self.result_end       = self.RESULTS_PER_PAGE - 1 # keeps track of the end of the current page default to results per page -1 ( b/c array is 0-indexed )
         
 
         self.create_table()
@@ -96,13 +110,13 @@ class PhotoTable():
     # congifure the window size, window title
     def edit_image_exif_data( self, photo):
       
-        self.edit_window = Toplevel(self.parent)
+        self.edit_window = Toplevel(self.parent) # frame to hold edit window
         self.edit_window.grid()
         self.edit_window.grid_columnconfigure(0, weight = 1)
         self.edit_window.title(f"Edit Exif data for {photo['name']}")
         self.edit_window.geometry( "300x150" )
        
-       # frame that will act as container for the label and entry field widgets
+        # frame that will act as container for the label and entry field widgets
         form_frame = tk.Frame(self.edit_window)
         
         # using Tkinter grid method to position widgets and frame
@@ -138,27 +152,18 @@ class PhotoTable():
             pady = 5
         )
 
-    # convert the latitude and longitude from decimal to dms  
-    # https://www.rapidtables.com/convert/number/degrees-to-degrees-minutes-seconds.html resource for the equations to convert
-    # latitude and longitude from decimal to dms
-    def convert_to_exif_format(self, decimal):
-        degrees = int(decimal)
-        minutes = int((decimal - degrees) * 60)
-        seconds = ((decimal - degrees - minutes/60) * 3600)
-
-        return[(int(degrees), 1), (int(minutes), 1), (int(seconds * 100), 100)]
-
     # reads user entered latitude and longitude, validates input, writes new latitude and longitude to images exif data
-    def write_exif_data(self, photo):
-        print(photo['name'])
+    def write_exif_data(self, photo):        
         
         # validating by casting to a float and checking to see if the latitude and longitude are
         # in the correct range
         try:
-            latitude = float(self.latitude_entry.get())
+            latitude  = float(self.latitude_entry.get())
             longitude = float(self.longitude_entry.get())
+
             if latitude < -90 or latitude > 90:
                 raise Exception("Latitude outside of valid range!")
+            
             if longitude < -180 or longitude > 180:
                 raise Exception("Longitude is outside of valid range!")
         
@@ -166,22 +171,16 @@ class PhotoTable():
         except Exception as e:
             tk.messagebox.showerror("Error", "Latitude must be between -90 and 90!\nLongitude must be between -180 and 180!")
             return
-        
-        # convert to proper format to write to exif data, write to exif data
-        exif_dict = piexif.load(photo["full_path"])
-        exif_dict["GPS"] = {
-            piexif.GPSIFD.GPSLatitudeRef: "N" if latitude >= 0 else "S",
-            piexif.GPSIFD.GPSLatitude: self.convert_to_exif_format(abs(latitude)),
-            piexif.GPSIFD.GPSLongitudeRef: "E" if longitude >= 0 else "W",
-            piexif.GPSIFD.GPSLongitude: self.convert_to_exif_format(abs(longitude)),
-        }
 
-        # saves it 
-        image = Image.open(photo["full_path"])
-        image.save(photo["full_path"], "jpeg", exif = piexif.dump(exif_dict))
-        self.on_photo_edit()
-        # closes the window after the save, which is done by clicking the save button and 
-        # input is valid
+        # use the gpsphoto modules modGPSData 
+        # https://pypi.org/project/gpsphoto/
+        gps_photo = gpsphoto.GPSPhoto(photo["full_path"])
+        gps_info  = gpsphoto.GPSInfo((latitude, longitude))
+
+        # Modify GPS Data
+        gps_photo.modGPSData(gps_info, photo['full_path'])
+        self.app.update_photo_info()
+        
         self.edit_window.destroy()
 
     # changes page with respect to the button click
@@ -277,6 +276,7 @@ class PhotoTable():
             "action": self.PAGE_LAST
         }]
 
+        # loop over list of paginator objects and add a button for each
         for paginator_index, paginator_button in enumerate( paginator_buttons, start = 1 ):
             text   = paginator_button['text']
             action = paginator_button['action']
@@ -365,6 +365,8 @@ class PhotoTable():
         }]
 
         header_background = "dim gray"
+
+        # create columns headers
         for column_index, header in enumerate( headers ):
             name = header['name']
 
@@ -507,13 +509,10 @@ class PhotoWindow:
 
     def __init__( self, app ):
 
-        self.app = app
-        self.scrollbar = None
-        self.table_frame = None
-        self.scrollable_photo_canvas = None
-        self.font = tkFont.Font(family="Helvetica", size=12)
+        self.app = app # main application
+        self.font = tkFont.Font(family="Helvetica", size=12) # font to use throughout window
 
-        self.photo_table       = None
+        self.photo_table       = None # refers to the PhotoTable class instance when its created
         self.photo_table_frame = None
 
         self.create_photo_window()
@@ -541,7 +540,7 @@ class PhotoWindow:
         # update the photo info since added photos to our saved dir 
         self.app.update_photo_info()
 
-
+    # function that clears the photos from directory 
     def clear_photos_from_dir( self ):
         files = os.listdir(self.app.saved_photos_dir)
 
@@ -572,7 +571,7 @@ class PhotoWindow:
         )
         self.photo_table_frame.grid_columnconfigure(0, weight=1)
 
-        self.photo_table = PhotoTable( self.photo_table_frame, self.app.get_photos( as_list=True ), self.app.update_photo_info )
+        self.photo_table = PhotoTable( self.photo_table_frame, self.app )
 
 
 
@@ -620,11 +619,13 @@ class PhotoWindow:
         )
 
         # update the photo info in case theres already photos in the saved dir
-        self.app.update_photo_info()
+        #self.app.update_photo_info()
 
 
         self.create_photo_table()
-        
+
+    def destroy( self ):
+        self.photo_window.destroy()
 
 # Root of Geo Nav Application 
 class GeoNavApplication:
@@ -636,16 +637,20 @@ class GeoNavApplication:
         self.saved_photos_dir = os.getcwd()+"/saved_photos"
         
         self.photo_window = None
+        self.map_window   = None
 
         self._photos = {}
 
         self.create_main_window()
 
+        # retrieve photo info in case there are already photos in saved_photos directory
+        self.update_photo_info()
+
     # main window with buttons, earth icon, header with program title
     def create_main_window( self ):
         self.main_window = Tk()
     
-        self.main_window.geometry("780x780")
+        self.main_window.geometry("1600x900")
         self.main_window.title("Image Geo Navigator")
 
         self.main_window.config(background = "lemonchiffon")
@@ -673,9 +678,15 @@ class GeoNavApplication:
             font = ("Helvetica", 48 )
         )
         header_label.pack(
-            pady = 10
+            pady = (10,0)
         )
 
+        add_text = Label(self.main_window,
+        text = "Map Your Adventure Through Photos!",
+        bg = "lemonchiffon",
+        font = ("Helvetica", 32))
+        add_text.pack(pady = (50, 0))
+       
         # frame 
         frame = tk.Frame(self.main_window)
         frame.pack(
@@ -724,6 +735,23 @@ class GeoNavApplication:
             expand = True,
             ipady = 5
         )
+        earth_image = Image.open( "images/earth_icon.png" )
+        earth_image = earth_image.resize((200,200))
+
+        earth_image = ImageTk.PhotoImage(earth_image)
+
+        label = Label(self.main_window,
+         image = earth_image,
+         bg = "lemonchiffon")
+        label.pin_point_image = earth_image
+
+        
+        window_height = 900
+        image_height = 150
+
+        label.place( x =200 ,
+        y = (window_height // 6) - image_height // 4)
+
 
         # method for helping get image information
     def get_photos( self, as_list=False, image_name=None ):
@@ -747,23 +775,7 @@ class GeoNavApplication:
         
         # if no parameters were passed just return the photos dict 
         return self._photos
-    
-    # This will convert the gps from degrees, mins, secs to the longitude and latitude in decimals 
-    # resource to help with dms to decimal equations https://www.rapidtables.com/convert/number/degrees-minutes-seconds-to-degrees.html
-    def dms_to_decimal(self, dms, ref):
-        degrees = dms[0][0] / dms [0][1]
-        #print(degrees)
-        minutes = dms[1][0] / dms[1][1]
-        #print(minutes)
-        seconds = dms[2][0] / dms[2][1]
-        #print(seconds)
-        decimal = degrees + (minutes / 60) + (seconds / 3600)
-        #print( f"decimal is {decimal}")
-        if ref in ['S', 'W']:
 
-            decimal = -decimal
-            #print(f"decimal is {decimal}")
-        return decimal
     
      # reads the added photo infomation and updates the internal photo data 
     def update_photo_info( self ):
@@ -783,22 +795,15 @@ class GeoNavApplication:
         for image in image_files:
             full_path = f"{self.saved_photos_dir}/{image}" 
             try:
-                image_obj = Image.open(full_path)
-                exif_data = piexif.load(image_obj.info.get('exif', b''))
-
-                gps_latitude = exif_data.get("GPS", {}).get(piexif.GPSIFD.GPSLatitude, None)
-
-                gps_latitude_ref = exif_data.get("GPS", {}).get(piexif.GPSIFD.GPSLatitudeRef,b'').decode()
-
-                gps_longitude = exif_data.get("GPS", {}).get(piexif.GPSIFD.GPSLongitude, None)
-
-                gps_longitude_ref = exif_data.get("GPS", {}).get(piexif.GPSIFD.GPSLongitudeRef, b'').decode()
                 
-                
-                if gps_latitude and gps_longitude:
-                    latitude = self.dms_to_decimal(gps_latitude, gps_latitude_ref)
-                    longitude = self.dms_to_decimal(gps_longitude, gps_longitude_ref)
-                else: latitude, longitude = None, None
+                latitude  = None
+                longitude = None
+
+                gps_exif_data = gpsphoto.getGPSData(full_path)
+                if 'Latitude' in gps_exif_data and 'Longitude' in gps_exif_data:
+                    latitude  = gps_exif_data['Latitude']
+                    longitude = gps_exif_data['Longitude']
+
                     
             except Exception as e:
                 print("No GPS data found")
@@ -809,22 +814,33 @@ class GeoNavApplication:
                 "full_path": full_path,
                 "latitude": latitude,
                 "longitude": longitude,
-                }
+            }
             
-            # Print to see if lat and long is correct
+            # Print to see if latitude and longitude is correct
             print(f"photo {image} updated exif data")
             print(f"Your gps coordinates are: {(latitude, longitude)}")
 
-          
+        # recreate the photo window if it currently exists
+        if( self.photo_window ):
+            self.create_photo_window()
+
+        # recreate the map window if it currently exists
+        if( self.map_window ):
+            self.create_map_window()
 
 
     def close_program( self ):
         self.main_window.destroy()
     
     def create_map_window( self ):
+        if( self.map_window ):
+            self.map_window.destroy()
+
         self.map_window = MapWindow( self )
 
     def create_photo_window( self ):
+        if( self.photo_window ):
+            self.photo_window.destroy()
 
         self.photo_window = PhotoWindow( self )
 
