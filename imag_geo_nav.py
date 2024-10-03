@@ -137,7 +137,7 @@ class PhotoTable():
     # create the top level window that allows to edit exif data
     # congifure the window size, window title
     def edit_image_exif_data( self, photo):
-      
+        
         self.edit_window = Toplevel(self.parent) # frame to hold edit window
         self.edit_window.grid()
         self.edit_window.grid_columnconfigure(0, weight = 1)
@@ -166,6 +166,8 @@ class PhotoTable():
         self.longitude_entry = Entry(form_frame)
         self.longitude_entry.grid(row = 1, column = 1, sticky = "ew", pady = 5)
 
+        
+
         # this button saves the new latitude and longitude
         # you will see the photo window refresh when you click this save
         tk.Button( form_frame,
@@ -179,6 +181,8 @@ class PhotoTable():
             sticky = "e", 
             pady = 5
         )
+
+        
 
     # reads user entered latitude and longitude, validates input, writes new latitude and longitude to images exif data
     def write_exif_data(self, photo):        
@@ -778,6 +782,23 @@ class GeoNavApplication:
         image_height = 150
 
         label.place( x =250 ,
+        y = (window_height // 8) - image_height // 4)
+
+        pin_point = Image.open( "images/pin_point.png" )
+        pin_point = pin_point.resize((50,50))
+
+        pin_point = ImageTk.PhotoImage(pin_point)
+
+        label = Label(self.main_window,
+         image = pin_point,
+         bg = "lemonchiffon")
+        label.pin_point_image = pin_point
+
+        
+        window_height = 1280
+        image_height = 75
+
+        label.place( x =1200 ,
         y = (window_height // 8) - image_height // 4)
 
 
