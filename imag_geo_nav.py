@@ -7,7 +7,7 @@ from PIL import Image, ImageTk
 import os 
 import math
 import shutil
-#import piexif
+
 
 from GPSPhoto import gpsphoto
 
@@ -35,7 +35,7 @@ class MapWindow:
         self.map_window.title("Map")
        
        # set the geometry of the window
-        self.map_window.geometry("800x600")
+        self.map_window.geometry("1280x980")
     
         # map widget from the TkinterMapView library. set the width and height
         self.map_widget = TkinterMapView( self.map_window,
@@ -57,6 +57,26 @@ class MapWindow:
         # this will add points to map, see function below
         self.add_points()
 
+
+    # function to execute when a marker is clicked
+    def on_marker_click( self, marker, photo ):
+        print(f"clicked photo: {photo['name']}")
+
+        # Create a new window to hold the image in
+        photo_window = tk.Toplevel(self.map_window)
+        photo_window.title(f"Image for {photo['name']}")
+        photo_window.geometry("400x400")  # Set window size to fit the image
+
+        # Load and resize the image
+        image = Image.open(photo['full_path'])
+        image = image.resize((400, 400), Image.Resampling.LANCZOS) 
+        image_tk = ImageTk.PhotoImage(image)
+
+        # Create a label to display the image
+        label = tk.Label(photo_window, image=image_tk)
+        label.image = image_tk
+        label.pack()
+
     # function that adds points to the map based on the latitude and longitude that
     # is extracted from the exif data and converted or from the user editing the exif data via the edit exif button 
     def add_points( self ):
@@ -66,7 +86,15 @@ class MapWindow:
             latitude  = photo["latitude"]
             longitude = photo["longitude"]
 
-            self.map_widget.set_marker(latitude, longitude)
+            if( latitude is None or longitude is None ):
+                print(f"Photo ({photo['name']}) does not have both latitude and longitude defined, skipping...")
+                continue
+
+            self.map_widget.set_marker(latitude, longitude,
+                text    = photo['name'],
+                command = lambda marker, photo=photo: self.on_marker_click( marker, photo=photo ),
+            )
+
 
     def destroy( self ):
         self.map_window.destroy()
@@ -147,7 +175,7 @@ class PhotoTable():
         ).grid( 
             row = 2,
             column = 1,
-            padx  = (10, 0),
+            padx  = 10,
             sticky = "e", 
             pady = 5
         )
@@ -736,7 +764,7 @@ class GeoNavApplication:
             ipady = 5
         )
         earth_image = Image.open( "images/earth_icon.png" )
-        earth_image = earth_image.resize((200,200))
+        earth_image = earth_image.resize((150,150))
 
         earth_image = ImageTk.PhotoImage(earth_image)
 
@@ -746,11 +774,11 @@ class GeoNavApplication:
         label.pin_point_image = earth_image
 
         
-        window_height = 900
+        window_height = 1280
         image_height = 150
 
-        label.place( x =200 ,
-        y = (window_height // 6) - image_height // 4)
+        label.place( x =250 ,
+        y = (window_height // 8) - image_height // 4)
 
 
         # method for helping get image information
