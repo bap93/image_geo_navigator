@@ -193,15 +193,15 @@ class PhotoTable():
             latitude  = float(self.latitude_entry.get())
             longitude = float(self.longitude_entry.get())
 
-            if latitude < -90 or latitude > 90:
+            if latitude < -89.999999 or latitude > 89.999999:
                 raise Exception("Latitude outside of valid range!")
             
-            if longitude < -180 or longitude > 180:
+            if longitude < -179.999999 or longitude > 179.999999:
                 raise Exception("Longitude is outside of valid range!")
         
         # exception error if the user enters in invalid data, not a float 
         except Exception as e:
-            tk.messagebox.showerror("Error", "Latitude must be between -90 and 90!\nLongitude must be between -180 and 180!")
+            tk.messagebox.showerror("Error", "Latitude must be between -89.999999 and 89.999999!\nLongitude must be between -179.999999 and 179.999999!")
             return
 
         # use the gpsphoto modules modGPSData 
