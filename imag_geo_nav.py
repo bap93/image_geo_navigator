@@ -104,6 +104,8 @@ class MapWindow:
 class PhotoTable():
     def __init__(self, parent, app):
         
+        self.edit_window = None
+        
         # setting passed in intilization varaibles as class properties 
         self.parent = parent # the tkinter object to create this phototable within
         self.app    = app    # the main application class 
@@ -137,7 +139,9 @@ class PhotoTable():
     # create the top level window that allows to edit exif data
     # congifure the window size, window title
     def edit_image_exif_data( self, photo):
-        
+        # checks to see if exists, if so destroy to avoid duplicate windows
+        if self.edit_window:
+            self.edit_window.destroy()
         self.edit_window = Toplevel(self.parent) # frame to hold edit window
         self.edit_window.grid()
         self.edit_window.grid_columnconfigure(0, weight = 1)
