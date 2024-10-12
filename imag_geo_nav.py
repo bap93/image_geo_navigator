@@ -788,6 +788,15 @@ class GeoNavApplication:
         label.place( x =250 ,
         y = (window_height // 8) - image_height // 4)
 
+        # making label to use as alt text for screen readers, making text same color as background
+        alt_label = tk.Label(self.main_window, 
+         text = "Clip art image of the earth with blue waters and green land.",
+         font = ("Helvetica", 6),
+         fg = "lemonchiffon",
+         bg = "lemonchiffon")
+        alt_label.place( x = 150, 
+        y = (window_height // 4)  - image_height // 4)
+
         pin_point = Image.open( "images/pin_point.png" )
         pin_point = pin_point.resize((50,50))
 
@@ -804,6 +813,15 @@ class GeoNavApplication:
 
         label.place( x =1200 ,
         y = (window_height // 8) - image_height // 4)
+
+        # using label as alt text for screen readers, making the text same color as background
+        alt_label_pin = tk.Label(self.main_window, 
+         text = "Clip art image of a red map marker.",
+         font = ("Helvetica", 6),
+         fg = "lemonchiffon",
+         bg = "lemonchiffon")
+        alt_label_pin.place( x = 1200, 
+        y = (window_height // 6)  - image_height // 4)
 
 
         # method for helping get image information
